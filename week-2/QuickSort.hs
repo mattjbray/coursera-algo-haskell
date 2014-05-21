@@ -1,38 +1,52 @@
 import Control.Monad
 import Control.Monad.Writer
 import qualified Data.Vector as V
+import qualified Data.List as L
 import Test.HUnit
 
 main = do
-  input <- (liftM lines . readFile) "10.txt"
+  sortFile chooseFirst "10.txt"
+  sortFile chooseLast "10.txt"
+  sortFile chooseFirst "100.txt"
+  sortFile chooseLast "100.txt"
+  sortFile chooseFirst "1000.txt"
+  sortFile chooseLast "1000.txt"
+
+type PivotChooser a = V.Vector a -> (a, Int)
+
+chooseFirst :: PivotChooser Int
+chooseFirst xs = (V.head xs, 0)
+
+chooseLast :: PivotChooser Int
+chooseLast xs = (V.last xs, V.length xs - 1)
+
+sortFile :: PivotChooser Int -> String -> IO ()
+sortFile pivotChooser fileName = do
+  input <- (liftM lines . readFile) fileName
   let inputInt = map read input :: [Int]
-  let (sorted, compCount) = runQuicksort $ V.fromList inputInt
-  putStrLn $ "sorted: " ++ (show $ V.toList $ sorted)
+  let (sorted, compCount) = runQuicksort pivotChooser $ V.fromList inputInt
+  putStrLn $ "sorted: " ++ (show $ (L.sort inputInt) == (V.toList sorted))
   putStrLn $ "comparisons: " ++ (show $ getSum $ compCount)
 
-runQuicksort :: Ord a => V.Vector a -> (V.Vector a, Sum Int)
-runQuicksort xs = runWriter $ quicksort xs
+runQuicksort :: Ord a => PivotChooser a -> V.Vector a -> (V.Vector a, Sum Int)
+runQuicksort pivotChooser xs = runWriter $ quicksort pivotChooser xs
 
-quicksort :: Ord a => V.Vector a -> Writer (Sum Int) (V.Vector a)
-quicksort xs
+quicksort :: Ord a => PivotChooser a -> V.Vector a -> Writer (Sum Int) (V.Vector a)
+quicksort pivotChooser xs
   | V.length xs <= 1 = return $ xs
   | otherwise = do
-                  let (pivot, pivotIndex) = choosePivot xs
-                  (left, right) <- partition pivotIndex xs
-                  leftSorted  <- quicksort left
-                  rightSorted <- quicksort right
+                  tell (Sum (V.length xs - 1))
+                  let (pivot, pivotIndex) = pivotChooser xs
+                  let (left, right) = partition pivotIndex xs
+                  leftSorted  <- quicksort pivotChooser left
+                  rightSorted <- quicksort pivotChooser right
                   return $ leftSorted V.++ (V.singleton pivot) V.++ rightSorted
 
-choosePivot :: V.Vector a -> (a, Int)
-choosePivot xs = (V.head xs, 0)
-
-partition :: Ord a => Int -> V.Vector a -> Writer (Sum Int) (V.Vector a, V.Vector a)
+partition :: Ord a => Int -> V.Vector a -> (V.Vector a, V.Vector a)
 partition 0 xs = go 1 1 xs
   where
   go i j xs
-    | j == V.length xs = do
-        tell (Sum (j-1))
-        return (left, right)
+    | j == V.length xs = (left, right)
     | (xs V.! j) > V.head xs = go i (j+1) xs
     | otherwise              = go (i+1) (j+1) $ swap i j xs
       where
