@@ -19,6 +19,6 @@ executable week2
   main-is:             QuickSort.hs
   -- other-modules:       
   -- other-extensions:    
-  build-depends:       base >=4.7 && <4.8, vector, HUnit
+  build-depends:       base >=4.7 && <4.8, vector, HUnit, mtl
   -- hs-source-dirs:      
   default-language:    Haskell2010
