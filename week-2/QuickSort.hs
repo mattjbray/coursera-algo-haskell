@@ -5,18 +5,12 @@ import qualified Data.List as L
 import Test.HUnit
 
 main = do
-  putStrLn "10 first"
-  sortFile chooseFirst "10.txt"
-  putStrLn "10 last"
-  sortFile chooseLast "10.txt"
-  putStrLn "100 first"
-  sortFile chooseFirst "100.txt"
-  putStrLn "100 last"
-  sortFile chooseLast "100.txt"
-  putStrLn "1000 first"
-  sortFile chooseFirst "1000.txt"
-  putStrLn "1000 last"
-  sortFile chooseLast "1000.txt"
+  putStrLn "first element as pivot:"
+  sortFile chooseFirst "QuickSort.txt"
+  putStrLn "last element as pivot:"
+  sortFile chooseLast "QuickSort.txt"
+  putStrLn "median-of-three element as pivot:"
+  sortFile chooseMedianOfThree "QuickSort.txt"
 
 type PivotChooser a = V.Vector a -> (a, Int)
 
@@ -26,12 +20,23 @@ chooseFirst xs = (V.head xs, 0)
 chooseLast :: PivotChooser Int
 chooseLast xs = (V.last xs, V.length xs - 1)
 
+chooseMedianOfThree :: PivotChooser Int
+chooseMedianOfThree xs = if (median == first) then (first, 0)
+                         else if (median == middle) then (middle, middleIndex)
+                         else (last, V.length xs - 1)
+  where
+  first       = V.head xs
+  middleIndex = ceiling (fromIntegral (V.length xs) / 2) - 1
+  middle      = xs V.! middleIndex
+  last        = V.last xs
+  sorted      = L.sort [first, middle, last] --fst $ runQuicksort chooseFirst $ V.fromList [first, middle, last]
+  median      = sorted L.!! 1
+
 sortFile :: PivotChooser Int -> String -> IO ()
 sortFile pivotChooser fileName = do
   input <- (liftM lines . readFile) fileName
   let inputInt = map read input :: [Int]
   let (sorted, compCount) = runQuicksort pivotChooser $ V.fromList inputInt
-  --putStrLn $ "sorted: " ++ (show $ (L.sort inputInt) == (V.toList sorted))
   putStrLn $ "comparisons: " ++ (show $ getSum $ compCount)
 
 runQuicksort :: Ord a => PivotChooser a -> V.Vector a -> (V.Vector a, Sum Int)
@@ -56,8 +61,9 @@ partition 0 xs = go 1 1 xs
     | (xs V.! j) > V.head xs = go i (j+1) xs
     | otherwise              = go (i+1) (j+1) $ swap i j xs
       where
-      left = V.slice 1 (i-1) xs
-      right = V.slice (i) (j-i) xs
+      swapped = swap 0 (i-1) xs
+      left = V.take (i-1) swapped
+      right = V.drop (i) swapped
 -- if the pivot is not the first element, move it to the front
 partition pivotIndex xs = partition 0 $ swap 0 pivotIndex xs
 
@@ -65,15 +71,19 @@ swap :: Int -> Int -> V.Vector a -> V.Vector a
 swap i j xs = V.update xs (V.fromList [(i, xs V.! j), (j, xs V.! i)])
 
 tests = test [
-  "test partition" ~: (V.fromList [2,1], V.fromList [5,8,4,7,6]) ~=? (partition 0 (V.fromList [3,8,2,5,1,4,7,6])),
-  "test swap"      ~: (V.fromList [0,1,2,5,4,3,6,7,8]) ~=? (swap 3 5 (V.fromList [0,1,2,3,4,5,6,7,8])),
-  "test quicksort" ~: (V.fromList [1,2,3,4,5,6,7,8], Sum 15) ~=? runWriter (quicksort chooseFirst (V.fromList [3,8,2,5,1,4,7,6])),
-  "test quicksort 10 first"   ~: 25    ~=? getSum (snd (runWriter (quicksort chooseFirst (V.fromList input_10)))),
-  "test quicksort 10 last"    ~: 29    ~=? getSum (snd (runWriter (quicksort chooseLast  (V.fromList input_10)))),
-  "test quicksort 100 first"  ~: 615   ~=? getSum (snd (runWriter (quicksort chooseFirst (V.fromList input_100)))),
-  "test quicksort 100 last"   ~: 587   ~=? getSum (snd (runWriter (quicksort chooseLast  (V.fromList input_100)))),
-  "test quicksort 1000 first" ~: 10297 ~=? getSum (snd (runWriter (quicksort chooseFirst (V.fromList input_1000)))),
-  "test quicksort 1000 last"  ~: 10184 ~=? getSum (snd (runWriter (quicksort chooseLast  (V.fromList input_1000))))
+  "test partition" ~: (V.fromList [1,2], V.fromList [5,8,4,7,6]) ~=? (partition 0 (V.fromList [3,8,2,5,1,4,7,6])),
+  "test swap"      ~: (V.fromList [0,1,2,5,4,3,6,7,8])           ~=? (swap 3 5 (V.fromList [0,1,2,3,4,5,6,7,8])),
+  "test quicksort" ~: (V.fromList [1,2,3,4,5,6,7,8], Sum 15)     ~=? runWriter (quicksort chooseFirst (V.fromList [3,8,2,5,1,4,7,6])),
+  "test sorting"   ~: V.fromList (L.sort input_1000)             ~=? fst (runQuicksort chooseMedianOfThree (V.fromList input_1000)),
+  "test quicksort 10   first"  ~: 25    ~=? getSum (snd (runWriter (quicksort chooseFirst          (V.fromList input_10)))),
+  "test quicksort 10   last"   ~: 29    ~=? getSum (snd (runWriter (quicksort chooseLast           (V.fromList input_10)))),
+  "test quicksort 10   median" ~: 21    ~=? getSum (snd (runWriter (quicksort chooseMedianOfThree  (V.fromList input_10)))),
+  "test quicksort 100  first"  ~: 615   ~=? getSum (snd (runWriter (quicksort chooseFirst          (V.fromList input_100)))),
+  "test quicksort 100  last"   ~: 587   ~=? getSum (snd (runWriter (quicksort chooseLast           (V.fromList input_100)))),
+  "test quicksort 100  median" ~: 518   ~=? getSum (snd (runWriter (quicksort chooseMedianOfThree  (V.fromList input_100)))),
+  "test quicksort 1000 first"  ~: 10297 ~=? getSum (snd (runWriter (quicksort chooseFirst          (V.fromList input_1000)))),
+  "test quicksort 1000 last"   ~: 10184 ~=? getSum (snd (runWriter (quicksort chooseLast           (V.fromList input_1000)))),
+  "test quicksort 1000 median" ~: 8921  ~=? getSum (snd (runWriter (quicksort chooseMedianOfThree  (V.fromList input_1000))))
   ]
 
 input_10 = [3,9,8,4,6,10,2,5,7,1]
