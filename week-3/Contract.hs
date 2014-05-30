@@ -1,9 +1,11 @@
 import Prelude hiding (drop, filter, length)
-import Control.Monad (liftM, when)
+import Control.Monad (liftM, when, unless)
 import Data.Random (runRVar)
 import Data.Random.Extras (choiceSeq)
 import Data.Random.Source.DevRandom (DevRandom( DevURandom ))
 import Data.Sequence (Seq, (><), (<|), drop, filter, fromList, index, length, partition)
+import System.IO (hFlush, stdout)
+import System.ProgressBar (progressBar, msg, percentage)
 import Test.HUnit ((~:), assertEqual, runTestTT, test)
 
 debug = False
@@ -36,14 +38,18 @@ minCut g
   | otherwise = pickEdge g >>= minCut . (contract g)
 
 manyMinCut :: Int -> Graph -> IO Int
-manyMinCut n g = go n g maxBound
+manyMinCut iterations g = go iterations g maxBound
   where
   go :: Int -> Graph -> Int -> IO Int
-  go 0 g min = return min
+  go 0 g min = do
+    putStrLn ""
+    return min
   go n g min = do
     cut <- minCut g
     let newMin = if cut < min then cut else min
     when debug $ putStrLn $ "attempts remaining: " ++ show n ++ ", this time: " ++ show cut ++ ", min so far: " ++ show newMin
+    unless debug $ progressBar (msg "working") percentage 70 (toInteger iterations - toInteger n) (toInteger iterations)
+    hFlush stdout
     go (n-1) g newMin
 
 readGraph :: String -> Graph
