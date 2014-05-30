@@ -47,10 +47,12 @@ manyMinCut iterations g = go iterations g maxBound
   go n g min = do
     cut <- minCut g
     let newMin = if cut < min then cut else min
+    printInfo n cut newMin
+    go (n-1) g newMin
+  printInfo n cut newMin = do
     when debug $ putStrLn $ "attempts remaining: " ++ show n ++ ", this time: " ++ show cut ++ ", min so far: " ++ show newMin
     unless debug $ progressBar (msg "working") percentage 70 (toInteger iterations - toInteger n) (toInteger iterations)
     hFlush stdout
-    go (n-1) g newMin
 
 readGraph :: String -> Graph
 readGraph str = fromList $ map (\line ->
