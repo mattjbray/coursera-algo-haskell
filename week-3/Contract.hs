@@ -34,14 +34,15 @@ minCut g
   | otherwise = pickEdge g >>= minCut . (contract g)
 
 manyMinCut :: Int -> Graph -> IO Int
-manyMinCut n g = go n g 999999999
+manyMinCut n g = go n g maxBound
   where
   go :: Int -> Graph -> Int -> IO Int
   go 0 g min = return min
   go n g min = do
     cut <- minCut g
-    --putStrLn $ "attempts remaining: " ++ show n ++ ", this time: " ++ show cut ++ ", min so far: " ++ show min
-    go (n-1) g (if cut < min then cut else min)
+    let newMin = if cut < min then cut else min
+    --putStrLn $ "attempts remaining: " ++ show n ++ ", this time: " ++ show cut ++ ", min so far: " ++ show newMin
+    go (n-1) g newMin
 
 readGraph :: String -> Graph
 readGraph str = fromList $ map (\line ->
