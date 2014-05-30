@@ -1,10 +1,12 @@
 import Prelude hiding (drop, filter, length)
-import Control.Monad (liftM)
+import Control.Monad (liftM, when)
 import Data.Random (runRVar)
 import Data.Random.Extras (choiceSeq)
 import Data.Random.Source.DevRandom (DevRandom( DevURandom ))
 import Data.Sequence (Seq, (><), (<|), drop, filter, fromList, index, length, partition)
 import Test.HUnit
+
+debug = False
 
 type Vertex = Int
 type Edge = (Vertex, Vertex)
@@ -41,7 +43,7 @@ manyMinCut n g = go n g maxBound
   go n g min = do
     cut <- minCut g
     let newMin = if cut < min then cut else min
-    --putStrLn $ "attempts remaining: " ++ show n ++ ", this time: " ++ show cut ++ ", min so far: " ++ show newMin
+    when debug $ putStrLn $ "attempts remaining: " ++ show n ++ ", this time: " ++ show cut ++ ", min so far: " ++ show newMin
     go (n-1) g newMin
 
 readGraph :: String -> Graph
