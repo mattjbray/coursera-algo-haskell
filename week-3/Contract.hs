@@ -4,7 +4,7 @@ import Data.Random (runRVar)
 import Data.Random.Extras (choiceSeq)
 import Data.Random.Source.DevRandom (DevRandom( DevURandom ))
 import Data.Sequence (Seq, (><), (<|), drop, filter, fromList, index, length, partition)
-import Test.HUnit
+import Test.HUnit ((~:), assertEqual, runTestTT, test)
 
 debug = False
 
