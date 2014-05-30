@@ -1,40 +1,35 @@
-import Prelude hiding (drop, filter, head, length, tail)
+import Prelude hiding (drop, filter, length)
 import Data.Random (runRVar)
 import Data.Random.Extras (choiceSeq)
 import Data.Random.Source.DevRandom (DevRandom( DevURandom ))
-import Data.Sequence (Seq, (><), (<|), drop, filter, fromList, index, length)
+import Data.Sequence (Seq, (><), (<|), drop, filter, fromList, index, length, partition)
 import Test.HUnit
 
 type Vertex = Int
 type Edge = (Vertex, Vertex)
-type Graph = Seq (Seq Vertex)
-
-head :: Seq a -> a
-head xs = index xs 0
-
-tail :: Seq a -> Seq a
-tail = drop 1
+type Adjacency = (Vertex, Seq Vertex)
+type Graph = Seq Adjacency
 
 contract :: Edge -> Graph -> Graph
-contract (v1, v2) g
-  | v1 > v2 = contract (v2, v1) g                             -- ensure v2 > v1
-  | otherwise = fmap f (filter (\r -> head r /= v2) g)        -- filter out the v2 row and map f over the result
+contract (v1, v2) g = fmap f gWithoutV2
     where
-    v2Edges = head (filter (\r -> head r == v2) g)             -- the edges for v2
-    f row   = if head row == v1
-              then removeSelfLoops (row >< (tail v2Edges))    -- add the v2 edges to the v1 row and remove self loops
-              else fmap (\v -> if v == v2 then v1 else v) row  -- transform v2 -> v1 in all other rows
-    removeSelfLoops row = (head row) <| (filter (\v -> v /= v1 && v /= v2) (tail row))  -- filter any occurrences of v1 or v2 in the row
+    -- extract the v2 row from the graph
+    ((_, v2Adjacents), gWithoutV2) = let (v2Row, gWithoutV2) = partition (\(v, _) -> v == v2) g in (index v2Row 0, gWithoutV2)
+    -- add the v2 edges to the v1 row and remove self loops, transform v2 -> v1 in all other rows
+    f (v, adjacents)   = (v, if v == v1 then removeSelfLoops (adjacents >< v2Adjacents)
+                                        else v2ToV1 adjacents)
+    removeSelfLoops as = filter (\a -> a /= v1 && a /= v2) as       -- filter any occurrences of v1 or v2 in the row
+    v2ToV1 as          = fmap (\a -> if a == v2 then v1 else a) as  -- transform v2 -> v1 in all other rows
 
 pickEdge :: Graph -> IO Edge
 pickEdge g = do
-  v1Row <- runRVar (choiceSeq g) DevURandom
-  v2 <- runRVar (choiceSeq (tail v1Row)) DevURandom
-  return (head v1Row, v2)
+  (v1, v1Adjacents) <- runRVar (choiceSeq g) DevURandom
+  v2 <- runRVar (choiceSeq v1Adjacents) DevURandom
+  return (v1, v2)
 
 minCut :: Graph -> IO Int
 minCut g
-  | length g == 2 = return $ length (head g) - 1
+  | length g == 2 = return $ length (snd (index g 0))
   | otherwise = do
       edge <- pickEdge g
       minCut $ contract edge g
@@ -50,7 +45,9 @@ manyMinCut n g = go n g 999999999
     go (n-1) g (if cut < min then cut else min)
 
 readGraph :: String -> Graph
-readGraph str = fromList $ map (\line -> fromList ((map read . words) line)) (lines str)
+readGraph str = fromList $ map (\line ->
+                                  let vs = map read (words line) in
+                                  (head vs, fromList (tail vs))) (lines str)
 
 main = do
   input <- readFile "kargerMinCut.txt"
